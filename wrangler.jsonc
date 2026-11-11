@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ses-atolyesi",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // İşler (özet/dizin), bütçe ayarları
+  "kv_namespaces": [{ "binding": "STORE", "id": "KV_NAMESPACE_ID_BURAYA" }],
+
+  // Ses dosyaları + satır önbelleği
+  "r2_buckets": [{ "binding": "AUDIO", "bucket_name": "ses-atolyesi-audio" }],
+
+  // Arka plan iş yürütücüsü (her iş için bir Durable Object, alarm ile ilerler)
+  "durable_objects": { "bindings": [{ "name": "JOBS", "class_name": "JobRunner" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["JobRunner"] }],
+
+  // Gizli OLMAYAN ayarlar. Gizli değerler `wrangler secret put` ile girilir (README).
+  "vars": {
+    "DEFAULT_MODEL": "eleven_v4_turbo"
+  }
+}
