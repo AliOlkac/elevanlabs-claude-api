@@ -111,10 +111,17 @@ Durable Object (SQLite) ücretsiz planda da çalışır; R2'nin hesapta etkinle�
 
 1. Claude → **Ayarlar → Bağlayıcılar (Connectors) → Özel bağlayıcı ekle**.
 2. **Bağlayıcı URL'si:** `https://<alan>/mcp`
-3. **İstek başlığı (sabit):** `Authorization: Bearer <MCP_TOKEN>`
+3. Kimlik doğrulama, ikisinden biri:
+   - **OAuth (Claude uygulamasının varsayılanı):** başka bir şey girmeyin, **Bağlan**'a basın. Açılan
+     "Bağlantı izni" sayfasına panel parolanızı (`APP_PASSWORD`) yazın. Sunucu dinamik istemci kaydı
+     ve PKCE destekler; OAuth Client ID girmeniz gerekmez.
+   - **Sabit istek başlığı (destekleyen istemcilerde):** `Authorization: Bearer <MCP_TOKEN>`
 4. Kaydedin; araç listesinde 15 araç görünmelidir.
 5. Claude'un çalışma ortamının çıktı deposunu (`GITHUB_REPO`) okuyabildiğinden emin olun —
    Claude dosyaları oradan alır.
+
+OAuth belirteçleri `MCP_TOKEN` + `APP_PASSWORD` ile imzalanır; ikisinden birini değiştirmek tüm
+bağlantıları geçersiz kılar (yeniden bağlanmak yeter).
 
 Elle denemek için:
 

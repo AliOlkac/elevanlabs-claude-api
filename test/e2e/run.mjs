@@ -335,6 +335,50 @@ async function main() {
   assert.equal((await fetch(`${BASE}/api/settings`, { method: "PUT", headers: H, body: JSON.stringify({ per_job_char_limit: -1, monthly_char_limit: 0 }) })).status, 400);
   ok("budget: per-job and monthly limits block a job before it starts, with the reason");
 
+  // ---- OAuth sign-in (what Claude's connector does when no static header is configured)
+  {
+    const { createHash, randomBytes } = await import("node:crypto");
+    const un = await fetch(`${BASE}/mcp`, { method: "POST", body: "{}" });
+    assert.match(un.headers.get("www-authenticate"), /resource_metadata="http:\/\/127\.0\.0\.1:8799\/\.well-known\/oauth-protected-resource"/);
+    const prm = await (await fetch(`${BASE}/.well-known/oauth-protected-resource/mcp`)).json();
+    assert.equal(prm.authorization_servers[0], BASE);
+    const meta = await (await fetch(`${BASE}/.well-known/oauth-authorization-server`)).json();
+    const cb = "https://claude.ai/api/mcp/auth_callback";
+    assert.equal((await fetch(meta.registration_endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ redirect_uris: ["javascript:alert(1)"] }) })).status, 400);
+    const reg = await fetch(meta.registration_endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ client_name: "Claude", redirect_uris: [cb] }) });
+    assert.equal(reg.status, 201);
+    const { client_id } = await reg.json();
+    const verifier = randomBytes(32).toString("base64url");
+    const q = new URLSearchParams({ response_type: "code", client_id, redirect_uri: cb, state: "xyz", code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" });
+    const page = await fetch(`${meta.authorization_endpoint}?${q}`);
+    assert.equal(page.status, 200);
+    assert.ok((await page.text()).includes("İzin ver"));
+    assert.equal((await fetch(`${meta.authorization_endpoint}?${new URLSearchParams({ ...Object.fromEntries(q), redirect_uri: "https://evil.example/cb" })}`)).status, 400);
+    const wrong = await fetch(meta.authorization_endpoint, { method: "POST", body: new URLSearchParams({ ...Object.fromEntries(q), password: "nope" }), redirect: "manual" });
+    assert.equal(wrong.status, 401);
+    const okk = await fetch(meta.authorization_endpoint, { method: "POST", body: new URLSearchParams({ ...Object.fromEntries(q), password: vars.APP_PASSWORD }), redirect: "manual" });
+    assert.equal(okk.status, 302);
+    const loc = new URL(okk.headers.get("location"));
+    assert.equal(loc.origin + loc.pathname, cb);
+    assert.equal(loc.searchParams.get("state"), "xyz");
+    const code = loc.searchParams.get("code");
+    const tok = (body) => fetch(meta.token_endpoint, { method: "POST", body: new URLSearchParams(body) });
+    assert.equal((await tok({ grant_type: "authorization_code", code, client_id, redirect_uri: cb, code_verifier: "wrong-verifier" })).status, 400);
+    const t = await (await tok({ grant_type: "authorization_code", code, client_id, redirect_uri: cb, code_verifier: verifier })).json();
+    assert.equal(t.token_type, "Bearer");
+    const oc = new Client({ name: "oauth", version: "1" });
+    await oc.connect(new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), { requestInit: { headers: { authorization: `Bearer ${t.access_token}` } } }));
+    assert.equal((await oc.listTools()).tools.length, 15);
+    await oc.close();
+    const t2 = await (await tok({ grant_type: "refresh_token", refresh_token: t.refresh_token, client_id })).json();
+    assert.ok(t2.access_token);
+    // a refresh token or a tampered token must not work as an access token
+    assert.equal((await fetch(`${BASE}/mcp`, { method: "POST", headers: { authorization: `Bearer ${t.refresh_token}` }, body: "{}" })).status, 401);
+    assert.equal((await fetch(`${BASE}/mcp`, { method: "POST", headers: { authorization: `Bearer ${t.access_token.slice(0, -1)}0` }, body: "{}" })).status, 401);
+    allOutput.push(JSON.stringify(meta), JSON.stringify(prm));
+    ok("OAuth: discovery, client registration, password consent, PKCE code exchange, refresh; token opens /mcp");
+  }
+
   // ---- secrets
   const dump = allOutput.join("\n") + logs;
   for (const sec of SECRETS) assert.ok(!dump.includes(sec), `secret leaked: ${sec.slice(0, 6)}…`);
