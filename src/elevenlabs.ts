@@ -410,10 +410,12 @@ export class ElevenLabs {
           if (absolute === null && chunks.length > 0) absolute = (starts[0] ?? 0) / 1000 >= lastEnd - 0.05 && lastEnd > 0.2;
           const base = absolute ? 0 : (bytesSoFar * 8) / 192_000; // CBR 192 kbps
           for (let i = 0; i < a.chars.length; i++) {
-            const s = base + (starts[i] ?? 0) / 1000;
+            // Streamed timings can step back a few ms at a chunk boundary; keep the timeline monotonic.
+            const prev = al.starts.length ? al.starts[al.starts.length - 1] : 0;
+            const s = Math.max(prev, base + (starts[i] ?? 0) / 1000);
             al.characters.push(a.chars[i]);
             al.starts.push(s);
-            al.ends.push(s + (durs[i] ?? 0) / 1000);
+            al.ends.push(s + Math.max(0, durs[i] ?? 0) / 1000);
           }
           lastEnd = al.ends[al.ends.length - 1] ?? lastEnd;
         }
