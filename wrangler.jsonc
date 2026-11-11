@@ -7,7 +7,7 @@
   "observability": { "enabled": true },
 
   // İşler (özet/dizin), bütçe ayarları
-  "kv_namespaces": [{ "binding": "STORE", "id": "KV_NAMESPACE_ID_BURAYA" }],
+  "kv_namespaces": [{ "binding": "STORE", "id": "7e4e134073ee49c7970663a5683533f7" }],
 
   // Ses dosyaları + satır önbelleği
   "r2_buckets": [{ "binding": "AUDIO", "bucket_name": "ses-atolyesi-audio" }],
