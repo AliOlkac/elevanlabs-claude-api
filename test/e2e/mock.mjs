@@ -89,6 +89,7 @@ export function startMock({ port, elKey, ghToken, repo }) {
       if (sub === "/git/ref/heads/main") return g.head ? send(res, 200, { object: { sha: g.head } }) : send(res, 409, { message: "Git Repository is empty." });
       if (sub.startsWith("/git/commits/") && req.method === "GET") return send(res, 200, { sha: sub.slice(13), tree: { sha: g.commits[sub.slice(13)].tree } });
       if (sub === "/git/blobs") {
+        if (!g.head) return send(res, 409, { message: "Git Repository is empty." });
         const data = Buffer.from(body.content, "base64");
         const id = sha(data);
         g.blobs[id] = data;

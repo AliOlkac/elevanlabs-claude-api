@@ -131,9 +131,10 @@ export class GitHub {
 
   /** Convenience for small deliveries (sfx, music, previews): upload + single commit. */
   async commitFiles(message: string, files: { path: string; bytes: Uint8Array }[]): Promise<string> {
+    const head = await this.head(); // also initialises an empty repository
     const entries: TreeEntry[] = [];
     for (const f of files) entries.push({ path: f.path, sha: await this.createBlob(f.bytes) });
-    return (await this.commit(message, entries)).sha;
+    return (await this.commit(message, entries, head)).sha;
   }
 
   async readFile(path: string): Promise<Uint8Array> {

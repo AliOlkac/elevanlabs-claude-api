@@ -542,6 +542,7 @@ export class JobRunner extends DurableObject<Env> {
     const groups = groupBySize(files);
     const gh = new GitHub(this.env);
     const c = (s.commit ??= { blobs: {}, groups_done: 0, shas: [] });
+    if (!Object.keys(c.blobs).length) await gh.head(); // an empty repository must be initialised before blobs can be created
 
     for (let g = c.groups_done; g < groups.length; g++) {
       const missing = groups[g].filter((f) => !c.blobs[f.path]);
